@@ -36,9 +36,7 @@ jobs:
         #fi
 
         # Check versions
-        if [ "${OVMF_V}" != "${AVAIL_OVMF_V}" ]; then
-          echo "CREATE_RELEASE=true" >> $GITHUB_ENV
-        else
+        if [ "${OVMF_V}" == "${AVAIL_OVMF_V}" ]; then
           echo "${AVAIL_OVMF_V} up to date!"
           exit 0
         fi
