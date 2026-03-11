@@ -1,0 +1,138 @@
+name: edk2 Check
+
+on:
+  # Set schedule to run every  hours
+  schedule:
+    - cron: '0 1 * * *'
+
+  # Allow to trigger action manually
+  workflow_dispatch:
+
+jobs:  
+  check_version:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 1
+
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get -y install jq curl git build-essential uuid-dev nasm iasl dpkg
+
+    - name: Check versions
+      run: |
+        # Grab latest edk2 release from official repostiory and latest compiled release version from this repostiory
+        OVMF_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/tianocore/edk2/releases/latest | jq -r '.tag_name')
+        AVAIL_OVMF_V="$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} -s https://api.github.com/repos/unraid/unraid-edk2/releases/latest | jq -r '.tag_name' | sed 's/^v//')"
+
+        # Check if one of the versions is empty
+        #if [[ -z "${OVMF_V}" || -z "${AVAIL_OVMF_V}" ]]; then
+        #  echo "Can't get versions"
+        #  exit 1
+        #fi
+
+        # Check versions
+        if [ "${OVMF_V}" != "${AVAIL_OVMF_V}" ]; then
+          echo "CREATE_RELEASE=true" >> $GITHUB_ENV
+          echo "EDK2_VERSION=${LATEST_EDK2##*-}" >> $GITHUB_ENV
+        else
+          echo "${AVAIL_OVMF_V} up to date!"
+          echo "CREATE_RELEASE=false" >> $GITHUB_ENV
+          exit 0
+        fi
+
+        # OVMF
+        BUILDDIR=${{ github.workspace }}
+        PACKAGEDIR=$BUILDDIR/edk2_package
+        mkdir -p $PACKAGEDIR/usr/share/doc/mos-edk2-firmware $PACKAGEDIR/usr/share/qemu/OVMF
+        cd $BUILDDIR
+        git clone --branch $OVMF_V --single-branch --depth 1 https://github.com/tianocore/edk2.git
+        cd $BUILDDIR/edk2
+
+        git submodule update --init
+        cp $BUILDDIR/edk2_files/logo.bmp $BUILDDIR/edk2/MdeModulePkg/Logo/Logo.bmp
+        patch $BUILDDIR/edk2/OvmfPkg/Library/PlatformBmPrintScLib/StatusCodeHandler.c < $BUILDDIR/edk2_files/hidemessage.patch
+        git apply $BUILDDIR/edk2_files/disable_efi_mem_attr_proto.patch
+        make -C BaseTools -j$(nproc --all)
+
+        OvmfPkg/build.sh -b RELEASE -a X64 -t GCC5 -n 20 -D TPM1_ENABLE -D TPM2_ENABLE -D TPM_CONFIG_ENABLE -D SECURE_BOOT_ENABLE -D NETWORK_TLS_ENABLE
+        mv Build/OvmfX64 Build/OvmfX64_TPM
+        OvmfPkg/build.sh -b RELEASE -a X64 -t GCC5 -n 20 -D FD_SIZE_2MB
+
+        cp Build/OvmfX64_TPM/RELEASE_GCC5/FV/OVMF_CODE.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_CODE-TPM.fd
+        cp Build/OvmfX64_TPM/RELEASE_GCC5/FV/OVMF_VARS.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_VARS-TPM.fd
+        cp Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_CODE.fd
+        cp Build/OvmfX64/RELEASE_GCC5/FV/OVMF_VARS.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_VARS.fd
+
+        # Add License
+        cp $BUILDDIR/edk2/License.txt $PACKAGEDIR/usr/share/doc/mos-edk2-firmware/LICENSE
+
+        cat > $PACKAGEDIR/DEBIAN/control << EOF
+        Package: edk2-firmware
+        Version: ${OVMF_V}-mos
+        Architecture: all
+        Maintainer: admin@minenet.at
+        Description: Custom edk2 firmware build for MOS
+        EOF
+
+        cd $BUILDDIR
+        chmod -R 755 $PACKAGEDIR
+        dpkg-deb --build edk2_package mos-edk2-firmware_${OVMF_V##*-}_all.deb
+        md5sum $BUILDDIR/mos-edk2-firmware_${OVMF_V##*-}_all.deb | awk '{print $1}' > $BUILDDIR/mos-edk2-firmware_${OVMF_V##*-}_all.deb.md5
+
+        echo "OVMF_V=$OVMF_V" >> $GITHUB_ENV
+
+    - name: Create and Upload Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ env.OVMF_V }}
+        name: "${{ env.OVMF_V }}"
+        body: "edk2 firmware MOS"
+        files: |
+          ${{ env.BUILDDIR }}/*.deb
+          ${{ env.BUILDDIR }}/*.deb.md5
+        overwrite_files: true
+        fail_on_unmatched_files: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set notification variables on success
+      if: success()
+      run: |
+        echo "NOTIFICATION_PRIORITY=0" >> $GITHUB_ENV
+        echo "NOTIFICATION_MESSAGE=Built edk2 v${{ env.OVMF_V }}" >> $GITHUB_ENV
+
+    - name: Set notification variables on failure
+      if: failure()
+      run: |
+        echo "NOTIFICATION_PRIORITY=1" >> $GITHUB_ENV
+        echo "NOTIFICATION_MESSAGE=Failed to build edk2 v${{ env.OVMF_V }}" >> $GITHUB_ENV
+
+    - name: Cleanup & Notification
+      if: always()
+      run: |
+        # Discord notification function
+        discord_push_notification() {
+          if [ $3 -ge 1 ]; then
+            COLOR=16711680
+          else
+            COLOR=65280
+          fi
+
+          data=$(cat <<EOF
+        {
+          "embeds": [{
+            "title": "${1}",
+            "description": "${2}",
+            "color": ${COLOR}
+          }]
+        }
+        EOF
+        )
+          curl -H "Content-Type: application/json" -d "$data" "${{ secrets.DISCORD_WEBHOOK_URL }}"
+        }
+
+        discord_push_notification "${{ github.workflow }}" "${{ env.NOTIFICATION_MESSAGE }}" "${{ env.NOTIFICATION_PRIORITY }}"
+        rm -rf ${{ github.workspace }}/* ${{ github.workspace }}/.*
