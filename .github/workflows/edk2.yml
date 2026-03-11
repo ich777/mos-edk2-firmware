@@ -38,10 +38,8 @@ jobs:
         # Check versions
         if [ "${OVMF_V}" != "${AVAIL_OVMF_V}" ]; then
           echo "CREATE_RELEASE=true" >> $GITHUB_ENV
-          echo "EDK2_VERSION=${LATEST_EDK2##*-}" >> $GITHUB_ENV
         else
           echo "${AVAIL_OVMF_V} up to date!"
-          echo "CREATE_RELEASE=false" >> $GITHUB_ENV
           exit 0
         fi
 
