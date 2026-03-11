@@ -37,8 +37,11 @@ jobs:
 
         # Check versions
         if [ "${OVMF_V}" == "${AVAIL_OVMF_V}" ]; then
+          echo "CREATE_RELEASE=false" >> $GITHUB_ENV
           echo "${AVAIL_OVMF_V} up to date!"
           exit 0
+        else
+          echo "CREATE_RELEASE=true" >> $GITHUB_ENV
         fi
 
         # OVMF
@@ -86,6 +89,7 @@ jobs:
         echo "OVMF_V=$OVMF_V" >> $GITHUB_ENV
 
     - name: Create and Upload Release
+      if: env.CREATE_RELEASE == 'true' && success()
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ env.OVMF_V }}
