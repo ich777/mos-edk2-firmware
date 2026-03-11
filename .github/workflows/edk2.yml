@@ -48,7 +48,7 @@ jobs:
         # OVMF
         BUILDDIR=${{ github.workspace }}
         PACKAGEDIR=$BUILDDIR/edk2_package
-        mkdir -p $PACKAGEDIR/usr/share/doc/mos-edk2-firmware $PACKAGEDIR/usr/share/qemu/OVMF
+        mkdir -p $PACKAGEDIR/usr/share/doc/mos-edk2-firmware $PACKAGEDIR/usr/share/qemu/OVMF $PACKAGEDIR/DEBIAN
         cd $BUILDDIR
         git clone --branch $OVMF_V --single-branch --depth 1 https://github.com/tianocore/edk2.git
         cd $BUILDDIR/edk2
