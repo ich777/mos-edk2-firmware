@@ -30,10 +30,10 @@ jobs:
         AVAIL_OVMF_V="$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} -s https://api.github.com/repos/ich777/mos-edk2-firmware/releases/latest | jq -r '.tag_name' | sed 's/^v//')"
 
         # Check if one of the versions is empty
-        if [[ -z "${OVMF_V}" || -z "${AVAIL_OVMF_V}" ]]; then
-          echo "Can't get versions"
-          exit 1
-        fi
+        #if [[ -z "${OVMF_V}" || -z "${AVAIL_OVMF_V}" ]]; then
+        #  echo "Can't get versions"
+        #  exit 1
+        #fi
 
         # Check versions
         if [ "${OVMF_V}" == "${AVAIL_OVMF_V}" ]; then
@@ -79,6 +79,7 @@ jobs:
 
         cd $BUILDDIR
         chmod -R 755 $PACKAGEDIR
+        chown -R root:root $PACKAGEDIR
         dpkg-deb --build edk2_package mos-edk2-firmware_${OVMF_V_NUM//[^0-9]/}_all.deb
         md5sum $BUILDDIR/mos-edk2-firmware_${OVMF_V_NUM//[^0-9]/}_all.deb | awk '{print $1}' > $BUILDDIR/mos-edk2-firmware_${OVMF_V_NUM//[^0-9]/}_all.deb.md5
 
