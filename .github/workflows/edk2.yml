@@ -136,4 +136,4 @@ jobs:
         }
 
         discord_push_notification "${{ github.workflow }}" "${{ env.NOTIFICATION_MESSAGE }}" "${{ env.NOTIFICATION_PRIORITY }}"
-        rm -rf ${{ github.workspace }}/* ${{ github.workspace }}/.*
+        sudo rm -rf ${{ github.workspace }}/* ${{ github.workspace }}/.*
