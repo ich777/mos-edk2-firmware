@@ -63,10 +63,10 @@ jobs:
         mv Build/OvmfX64 Build/OvmfX64_TPM
         OvmfPkg/build.sh -b RELEASE -a X64 -t GCC -n 20 -D FD_SIZE_2MB --pcd gUefiOvmfPkgTokenSpaceGuid.PcdUninstallMemAttrProtocol=TRUE
 
-        cp Build/OvmfX64_TPM/RELEASE_GCC5/FV/OVMF_CODE.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_CODE-TPM.fd
-        cp Build/OvmfX64_TPM/RELEASE_GCC5/FV/OVMF_VARS.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_VARS-TPM.fd
-        cp Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_CODE.fd
-        cp Build/OvmfX64/RELEASE_GCC5/FV/OVMF_VARS.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_VARS.fd
+        cp Build/OvmfX64_TPM/RELEASE_GCC/FV/OVMF_CODE.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_CODE-TPM.fd
+        cp Build/OvmfX64_TPM/RELEASE_GCC/FV/OVMF_VARS.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_VARS-TPM.fd
+        cp Build/OvmfX64/RELEASE_GCC/FV/OVMF_CODE.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_CODE.fd
+        cp Build/OvmfX64/RELEASE_GCC/FV/OVMF_VARS.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_VARS.fd
 
         # Add License
         cp $BUILDDIR/edk2/License.txt $PACKAGEDIR/usr/share/doc/mos-edk2-firmware/LICENSE
